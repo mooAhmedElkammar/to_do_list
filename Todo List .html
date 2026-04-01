@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academic Revision Tracker</title>
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Hide scrollbar but keep functionality */
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        body { background-color: #f4f6f8; margin: 0; padding: 0; }
+        .ai-shimmer {
+            background: linear-gradient(90deg, #5145cd 0%, #8b5cf6 50%, #5145cd 100%);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite linear;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .spinner { border: 2px solid rgba(81, 69, 205, 0.1); width: 16px; height: 16px; border-radius: 50%; border-left-color: #5145cd; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- ICONS ---
+        const Icon = ({ path, size = 20, className = "", strokeWidth = "2" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className} dangerouslySetInnerHTML={{ __html: path }} />
+        );
+        const icons = {
+            checkCircle2: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+            checkCircleFill: '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/>',
+            circle: '<circle cx="12" cy="12" r="10"/>',
+            plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+            trash: '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
+            edit: '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>',
+            save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
+            x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+            book: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+            arrowUp: '<path d="m18 15-6-6-6 6"/>',
+            arrowDown: '<path d="m6 9 6 6 6-6"/>',
+            clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+            calendar: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+            star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+            settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+            alertCircle: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
+            graduationCap: '<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>',
+            barChart: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+            sparkles: '<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>'
+        };
+
+        // --- GEMINI API HELPER ---
+        const callGemini = async (prompt) => {
+            const apiKey = ""; // API Key injected by environment
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ parts: [{ text: prompt }] }] };
+
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            for (let i = 0; i < 6; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const data = await response.json();
+                    return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
+                } catch (e) {
+                    if (i === 5) throw e;
+                    await new Promise(res => setTimeout(res, delays[i]));
+                }
+            }
+        };
+
+        // --- HELPER FUNCTIONS ---
+        const formatTime = (minutes) => {
+            const mins = Number(minutes) || 0;
+            if (mins === 0) return '--';
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            if (h > 0 && m > 0) return `${h}h ${m}m`;
+            if (h > 0) return `${h}h`;
+            return `${m}m`;
+        };
+
+        const formatStartTime = (timeStr) => {
+            if (!timeStr) return '--:--';
+            const [h, m] = timeStr.split(':');
+            const hours = parseInt(h, 10);
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            const formattedHours = hours % 12 || 12;
+            return `${formattedHours}:${m} ${ampm}`;
+        };
+
+        const parseDateObj = (dateString) => {
+            if (!dateString) return new Date();
+            const [year, month, day] = dateString.split('-');
+            return new Date(year, month - 1, day);
+        };
+
+        const getFormattedDate = (dateString) => {
+            const d = parseDateObj(dateString);
+            return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+        };
+
+        // --- DEFAULT DATA & SETTINGS ---
+        const defaultSettings = {
+            habitSections: [
+                {
+                    id: 'sec_prayers',
+                    title: 'Prayers & Habits',
+                    items: [
+                        { id: 'fajr', name: 'fajr' },
+                        { id: 'dhuhr', name: 'dhuhr' },
+                        { id: 'asr', name: 'asr' },
+                        { id: 'maghrib', name: 'maghrib' },
+                        { id: 'isha', name: 'isha' },
+                        { id: 'donot', name: 'donot' }
+                    ]
+                }
+            ]
+        };
+
+        const initialData = [
+            {
+                id: 'day_1', title: 'Day 1', date: '2026-03-29',
+                habits: { fajr: false, dhuhr: false, asr: false, maghrib: false, isha: false, donot: false },
+                subjects: [
+                    { id: 's1', name: 'Physics', tasks: [ { id: 't1', name: 'Session 01', duration: 130, startTime: '04:15', watched: false, book: false, urt: false, exam: false, notes: "Lo1&2" } ]},
+                    { id: 's2', name: 'Geo', tasks: [ { id: 't2', name: 'Session 01', duration: 250, startTime: '07:30', watched: false, book: false, urt: false, exam: false, notes: "level 1&2" } ]},
+                    { id: 's3', name: 'Biology', tasks: [ { id: 't3', name: 'Finish immunity', duration: 80, startTime: '12:00', watched: false, book: false, urt: false, exam: false, notes: "--" } ]},
+                    { id: 's4', name: 'Arabic', tasks: [ 
+                        { id: 't4', name: 'Session 01', duration: 185, startTime: '13:30', watched: false, book: false, urt: false, exam: false, notes: "نحو الوحدة الاولى" },
+                        { id: 't5', name: 'story session', duration: 130, startTime: '17:00', watched: false, book: false, urt: false, exam: false, notes: "قصة" } 
+                    ]},
+                    { id: 's5', name: 'English', tasks: [ { id: 't6', name: 'Unit 8&9', duration: 185, startTime: '19:30', watched: false, book: false, urt: false, exam: false, notes: "unit 8&9 Hallo" } ]},
+                    { id: 's6', name: 'Sleep', tasks: [] }
+                ]
+            },
+            {
+                id: 'day_2', title: 'Day 2', date: '2026-03-30',
+                habits: { fajr: false, dhuhr: false, asr: false, maghrib: false, isha: false, donot: false },
+                subjects: [
+                    { id: 'd2_s1', name: 'Geo', tasks: [ { id: 'd2_t1', name: 'Session 02', duration: 190, startTime: '06:30', watched: false, book: false, urt: false, exam: false, notes: "Level 3&4" } ]},
+                    { id: 'd2_s2', name: 'Arabic', tasks: [ { id: 'd2_t2', name: 'Session 02', duration: 190, startTime: '10:15', watched: false, book: false, urt: false, exam: false, notes: "--" } ]},
+                    { id: 'd2_s3', name: 'German', tasks: [ { id: 'd2_t3', name: 'Session 04', duration: 150, startTime: '14:30', watched: false, book: false, urt: false, exam: false, notes: "--" } ]},
+                    { id: 'd2_s4', name: 'English', tasks: [ { id: 'd2_t4', name: 'Unit 10&11', duration: 150, startTime: '17:30', watched: false, book: false, urt: false, exam: false, notes: "Unit 10&11 Hallo" } ]},
+                    { id: 'd2_s5', name: 'Sleep', tasks: [] }
+                ]
+            }
+        ];
+
+        function App() {
+            const [days, setDays] = useState([]);
+            const [settings, setSettings] = useState(null);
+            const [activeDayId, setActiveDayId] = useState(null);
+            const [loading, setLoading] = useState(true);
+            
+            // UI States
+            const [editingTask, setEditingTask] = useState(null);
+            const [addingToSubject, setAddingToSubject] = useState(null);
+            const [newSubjectMode, setNewSubjectMode] = useState(false);
+            const [newSubjectName, setNewSubjectName] = useState('');
+            const [editingSubjectId, setEditingSubjectId] = useState(null);
+            const [editSubjectName, setEditSubjectName] = useState('');
+
+            // AI Loading States
+            const [aiLoadingTask, setAiLoadingTask] = useState(null);
+            const [aiModal, setAiModal] = useState({ isOpen: false, message: '', isLoading: false });
+
+            // Modals
+            const [modal, setModal] = useState({ isOpen: false, type: '', title: '', message: '', onConfirm: null });
+            const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+            const [tempSettings, setTempSettings] = useState(null);
+
+            // --- INITIALIZATION ---
+            useEffect(() => {
+                const savedSettings = localStorage.getItem('trackerSettingsV3');
+                if (savedSettings) setSettings(JSON.parse(savedSettings));
+                else setSettings(defaultSettings);
+
+                const savedData = localStorage.getItem('myRevisionTrackerV5');
+                if (savedData) {
+                    setDays(JSON.parse(savedData));
+                    setActiveDayId(JSON.parse(savedData)[0]?.id);
+                } else {
+                    setDays(initialData);
+                    setActiveDayId(initialData[0].id);
+                }
+                setLoading(false);
+            }, []);
+
+            // --- SAVE TO LOCAL STORAGE ---
+            useEffect(() => {
+                if (!loading) localStorage.setItem('myRevisionTrackerV5', JSON.stringify(days));
+            }, [days, loading]);
+
+            useEffect(() => {
+                if (!loading && settings) localStorage.setItem('trackerSettingsV3', JSON.stringify(settings));
+            }, [settings, loading]);
+
+            // --- CUSTOM MODALS ---
+            const openConfirm = (title, message, onConfirm) => setModal({ isOpen: true, type: 'confirm', title, message, onConfirm });
+            const openAlert = (title, message) => setModal({ isOpen: true, type: 'alert', title, message, onConfirm: null });
+            const closeModal = () => setModal({ isOpen: false, type: '', title: '', message: '', onConfirm: null });
+
+            // --- DAY / SUBJECT UPDATES ---
+            const updateActiveDaySubjects = (updater) => {
+                setDays(prevDays => prevDays.map(day => {
+                    if (day.id !== activeDayId) return day;
+                    return { ...day, subjects: typeof updater === 'function' ? updater(day.subjects) : updater };
+                }));
+            };
+
+            const updateDayDate = (dayId, newDateStr) => {
+                setDays(prevDays => prevDays.map(day => day.id === dayId ? { ...day, date: newDateStr } : day));
+            };
+
+            const toggleHabit = (dayId, itemId) => {
+                setDays(prevDays => prevDays.map(day => {
+                    if (day.id !== dayId) return day;
+                    return { ...day, habits: { ...day.habits, [itemId]: !day.habits?.[itemId] } };
+                }));
+            };
+
+            // --- TASKS & SUBJECT ACTIONS ---
+            const toggleStatus = (subjectId, taskId, field) => {
+                updateActiveDaySubjects(subs => subs.map(sub => sub.id === subjectId ? { ...sub, tasks: sub.tasks.map(t => t.id === taskId ? { ...t, [field]: !t[field] } : t) } : sub));
+            };
+
+            const updateTask = (subjectId, taskId, updatedData) => {
+                if ('duration' in updatedData) updatedData.duration = Number(updatedData.duration) || 0;
+                updateActiveDaySubjects(subs => subs.map(sub => sub.id === subjectId ? { ...sub, tasks: sub.tasks.map(t => t.id === taskId ? { ...t, ...updatedData } : t) } : sub));
+                setEditingTask(null);
+            };
+
+            const deleteTask = (subjectId, taskId) => {
+                openConfirm('Delete Session', 'Are you sure you want to delete this session?', () => {
+                    updateActiveDaySubjects(subs => subs.map(sub => sub.id === subjectId ? { ...sub, tasks: sub.tasks.filter(t => t.id !== taskId) } : sub));
+                    closeModal();
+                });
+            };
+
+            const addTask = (subjectId, name, duration, startTime, notes) => {
+                if (!name.trim()) return;
+                const newTask = { id: `t_${Date.now()}`, name, duration: Number(duration) || 0, startTime, watched: false, book: false, urt: false, exam: false, notes };
+                updateActiveDaySubjects(subs => subs.map(sub => sub.id === subjectId ? { ...sub, tasks: [...sub.tasks, newTask] } : sub));
+                setAddingToSubject(null);
+            };
+
+            const addSubject = () => {
+                if (!newSubjectName.trim()) return;
+                updateActiveDaySubjects(subs => [...subs, { id: `s_${Date.now()}`, name: newSubjectName, tasks: [] }]);
+                setNewSubjectName('');
+                setNewSubjectMode(false);
+            };
+
+            const deleteSubject = (subjectId) => {
+                openConfirm('Delete Subject', 'Are you sure you want to delete this entire subject?', () => {
+                    updateActiveDaySubjects(subs => subs.filter(sub => sub.id !== subjectId));
+                    closeModal();
+                });
+            };
+
+            const saveSubjectName = (subjectId) => {
+                if (!editSubjectName.trim()) return;
+                updateActiveDaySubjects(subs => subs.map(sub => sub.id === subjectId ? { ...sub, name: editSubjectName } : sub));
+                setEditingSubjectId(null);
+            };
+
+            const moveSubjectUp = (index) => {
+                if (index === 0) return;
+                updateActiveDaySubjects(subs => { const n = [...subs]; [n[index - 1], n[index]] = [n[index], n[index - 1]]; return n; });
+            };
+
+            const moveSubjectDown = (index) => {
+                const max = (days.find(d => d.id === activeDayId)?.subjects || []).length - 1;
+                if (index === max) return;
+                updateActiveDaySubjects(subs => { const n = [...subs]; [n[index + 1], n[index]] = [n[index], n[index + 1]]; return n; });
+            };
+
+            const addNewDay = () => {
+                const lastDay = days[days.length - 1];
+                let nextDate = new Date();
+                if (lastDay?.date) {
+                    nextDate = parseDateObj(lastDay.date);
+                    nextDate.setDate(nextDate.getDate() + 1);
+                }
+                const newDay = {
+                    id: `day_${Date.now()}`,
+                    title: `Day ${days.length + 1}`,
+                    date: `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`,
+                    habits: {},
+                    subjects: lastDay ? lastDay.subjects.map(sub => ({ ...sub, tasks: [] })) : []
+                };
+                setDays(prev => [...prev, newDay]);
+                setActiveDayId(newDay.id);
+            };
+
+            const deleteDay = (dayId) => {
+                if (days.length === 1) return openAlert('Action Blocked', 'You must have at least one day in your tracker.');
+                openConfirm('Delete Entire Day', 'Are you sure you want to delete this entire day?', () => {
+                    const newDays = days.filter(d => d.id !== dayId);
+                    setDays(newDays);
+                    if (activeDayId === dayId) setActiveDayId(newDays[0].id);
+                    closeModal();
+                });
+            };
+
+            // --- STATS CALCULATIONS ---
+            const calcStats = (dayList) => {
+                let totalTasks = 0, totalMins = 0, checksDone = 0;
+                dayList.forEach(day => day.subjects.forEach(sub => {
+                    totalTasks += sub.tasks.length;
+                    sub.tasks.forEach(t => {
+                        totalMins += (Number(t.duration) || 0);
+                        checksDone += (t.watched ? 1 : 0) + (t.book ? 1 : 0) + (t.urt ? 1 : 0) + (t.exam ? 1 : 0);
+                    });
+                }));
+                const totalChecks = totalTasks * 4;
+                return { totalTasks, totalMins, checksDone, totalChecks, progress: totalChecks === 0 ? 0 : Math.round((checksDone / totalChecks) * 100) };
+            };
+
+            const activeDay = days.find(d => d.id === activeDayId) || days[0];
+            const activeSubjects = activeDay?.subjects || [];
+            const dailyStats = calcStats(activeDay ? [activeDay] : []);
+            const overallStats = calcStats(days);
+
+            // --- GEMINI AI FEATURES ---
+            const getDailyFeedback = async () => {
+                setAiModal({ isOpen: true, message: "", isLoading: true });
+                try {
+                    let scheduleStr = activeSubjects.map(s => {
+                        return `${s.name}: ` + s.tasks.map(t => `${t.name} (${t.duration}m)`).join(', ');
+                    }).join('\n');
+                    
+                    const prompt = `I am a student using a study tracker. Here is my study schedule for today:\n${scheduleStr}\n\nTotal study time: ${formatTime(dailyStats.totalMins)}.\nProvide a short, highly motivating message. Then, briefly tell me if my schedule looks balanced or if I risk burnout today. Finally, give me ONE specific, actionable study tip based on the exact subjects I'm studying today. Format the output in plain text with some emojis (do not use markdown like asterisks or hashtags).`;
+                    
+                    const feedback = await callGemini(prompt);
+                    setAiModal({ isOpen: true, message: feedback, isLoading: false });
+                } catch(e) {
+                    setAiModal({ isOpen: true, message: "⚠️ Failed to connect to the AI Coach. Please check your connection and try again.", isLoading: false });
+                }
+            };
+
+            const generateStudyPlan = async (subjectId, task, subjectName) => {
+                setAiLoadingTask(task.id);
+                try {
+                    const prompt = `I am preparing for a study session for the subject "${subjectName}" named "${task.name}". The session is ${task.duration} minutes long. My current notes for it are: "${task.notes || 'None'}". Please provide a very brief, 3-step actionable study plan or sub-topics for this specific session. Respond in plain text using dashes for bullet points (no markdown asterisks). Keep it extremely short so it fits in a notes column.`;
+                    const plan = await callGemini(prompt);
+                    updateTask(subjectId, task.id, { notes: plan.trim() });
+                } catch (e) {
+                    openAlert("AI Error", "Could not generate a study plan. Please try again later.");
+                } finally {
+                    setAiLoadingTask(null);
+                }
+            };
+
+
+            // --- SETTINGS LOGIC ---
+            const openSettings = () => {
+                setTempSettings(JSON.parse(JSON.stringify(settings)));
+                setIsSettingsOpen(true);
+            };
+            const saveSettings = () => { setSettings(tempSettings); setIsSettingsOpen(false); };
+            const addHabitSection = () => setTempSettings(prev => ({ ...prev, habitSections: [...prev.habitSections, { id: `sec_${Date.now()}`, title: 'New Section', items: [] }] }));
+            const deleteHabitSection = (secId) => setTempSettings(prev => ({ ...prev, habitSections: prev.habitSections.filter(s => s.id !== secId) }));
+            const updateHabitSectionTitle = (secId, newTitle) => setTempSettings(prev => ({ ...prev, habitSections: prev.habitSections.map(s => s.id === secId ? { ...s, title: newTitle } : s) }));
+            const addHabitItem = (secId) => setTempSettings(prev => ({ ...prev, habitSections: prev.habitSections.map(s => s.id === secId ? { ...s, items: [...s.items, { id: `hi_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`, name: 'New Item' }] } : s) }));
+            const deleteHabitItem = (secId, itemId) => setTempSettings(prev => ({ ...prev, habitSections: prev.habitSections.map(s => s.id === secId ? { ...s, items: s.items.filter(i => i.id !== itemId) } : s) }));
+            const updateHabitItemName = (secId, itemId, newName) => setTempSettings(prev => ({ ...prev, habitSections: prev.habitSections.map(s => s.id === secId ? { ...s, items: s.items.map(i => i.id === itemId ? { ...i, name: newName } : i) } : s) }));
+
+            // --- SUB-COMPONENTS ---
+            const StatusButton = ({ status, onClick }) => (
+                <button onClick={onClick} className={`focus:outline-none transition-colors ${status ? 'text-[#5145cd]' : 'text-slate-300 hover:text-slate-400'}`}>
+                    <Icon path={status ? icons.checkCircleFill : icons.circle} size={18} />
+                </button>
+            );
+
+            if (loading || !settings) return <div className="min-h-screen flex items-center justify-center text-[#5145cd] font-semibold">Loading...</div>;
+
+            return (
+                <div className="min-h-screen text-slate-800 font-sans pb-20 bg-[#f4f6f8]">
+                    
+                    {/* PURPLE HEADER SECTION */}
+                    <div className="bg-[#5145cd] pt-12 pb-24 px-4 text-center">
+                        <div className="inline-flex items-center justify-center w-14 h-14 bg-white/10 rounded-2xl mb-4 text-white">
+                            <Icon path={icons.graduationCap} size={30} strokeWidth="1.5" />
+                        </div>
+                        <h1 className="text-3xl md:text-[34px] font-extrabold text-white mb-2 tracking-tight">Academic Revision Tracker</h1>
+                        
+                                          <div 
+                                             className="flex items-center justify-center gap-1.5 text-indigo-100/90 text-[14px] md:text-[15px] font-medium text-center leading-loose" 
+          dir="rtl"
+        >
+          <span>
+            وَأَن لَّيْسَ لِلْإِنسَانِ إِلَّا مَا سَعَىٰۖ ۝ وَأَنَّ سَعْيَهُۥ سَوْفَ يُرَىٰۖ ۝ ثُمَّ يُجْزَىٰهُ اُ۬لْجَزَآءَ اَ۬لْأَوْفَىٰۖ ۝
+          </span>
+                                  </div>
+                    </div>
+
+                    <div className="max-w-5xl mx-auto px-4 sm:px-6 -mt-12 relative z-10 space-y-6">
+                        
+                        {/* OVERALL PROGRESS DASHBOARD CARD */}
+                        <div className="bg-white rounded-[20px] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                            
+                            {/* Left: Overall Progress */}
+                            <div className="flex items-center gap-4 w-full md:w-auto pl-1">
+                                <div className="bg-indigo-50 text-[#5145cd] p-3.5 rounded-xl">
+                                    <Icon path={icons.barChart} size={26} strokeWidth="2.5" />
+                                </div>
+                                <div>
+                                    <p className="text-[10.5px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">OVERALL PROGRESS</p>
+                                    <div className="flex items-baseline gap-1">
+                                        <span className="text-[28px] leading-none font-black text-slate-800 tracking-tight">{overallStats.progress}%</span>
+                                        <span className="text-[15px] font-semibold text-slate-500">done</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="w-px h-12 bg-slate-100 hidden md:block"></div>
+
+                            {/* Middle: Total Est Time */}
+                            <div className="flex items-center gap-4 w-full md:w-auto">
+                                <div className="bg-orange-50 text-orange-500 p-3.5 rounded-xl">
+                                    <Icon path={icons.clock} size={26} strokeWidth="2.5" />
+                                </div>
+                                <div>
+                                    <p className="text-[10.5px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">TOTAL EST. TIME</p>
+                                    <div className="text-[28px] leading-none font-black text-slate-800 tracking-tight">{formatTime(overallStats.totalMins)}</div>
+                                </div>
+                            </div>
+
+                            <div className="w-px h-12 bg-slate-100 hidden md:block"></div>
+
+                            {/* Right: Task Progress Bar */}
+                            <div className="w-full md:flex-1 min-w-[200px] pr-2">
+                                <div className="flex justify-between text-[11px] font-bold text-slate-500 mb-2.5">
+                                    <span>{overallStats.checksDone} tasks done</span>
+                                    <span>{overallStats.totalChecks} total tasks</span>
+                                </div>
+                                <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                                    <div className="h-full bg-slate-300 transition-all duration-500 rounded-full" style={{ width: `${overallStats.progress}%` }}></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* TABS ROW */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide pb-1">
+                                {days.map(day => (
+                                    <div key={day.id} className="relative group flex-shrink-0">
+                                        <button 
+                                            onClick={() => setActiveDayId(day.id)} 
+                                            className={`px-5 py-2.5 rounded-lg font-bold text-[13px] whitespace-nowrap transition-colors border ${activeDayId === day.id ? 'bg-[#5145cd] text-white border-[#5145cd] shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-50 border-slate-200'}`}>
+                                            <div className="flex items-center gap-2">
+                                                <Icon path={icons.calendar} size={15} /> {day.title}
+                                            </div>
+                                        </button>
+                                        {days.length > 1 && (
+                                            <button onClick={(e) => { e.stopPropagation(); deleteDay(day.id); }} className="absolute -top-1.5 -right-1.5 bg-white border border-slate-200 text-red-500 rounded-full p-0.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 transition-opacity z-10 shadow-sm"><Icon path={icons.x} size={12} /></button>
+                                        )}
+                                    </div>
+                                ))}
+                                <button onClick={addNewDay} className="px-4 py-2.5 rounded-lg font-bold text-[13px] whitespace-nowrap bg-white text-[#5145cd] hover:bg-indigo-50 border-2 border-dashed border-indigo-200 flex items-center gap-1.5 transition-colors flex-shrink-0 ml-1">
+                                    <Icon path={icons.plus} size={15} /> Add Day
+                                </button>
+                            </div>
+                            <button onClick={openSettings} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-[#5145cd] hover:border-indigo-300 transition-colors shadow-sm text-sm font-semibold ml-4">
+                                <Icon path={icons.settings} size={16} /> <span className="hidden sm:inline">Settings</span>
+                            </button>
+                        </div>
+
+                        {/* ACTIVE DAY HEADER CARD */}
+                        {activeDay && (
+                            <div className="bg-white rounded-xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-[#e5e7eb] p-5 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+                                <div className="absolute top-0 left-0 w-1.5 h-full bg-[#5145cd] rounded-l-xl"></div>
+                                <div className="flex items-center gap-4 pl-3">
+                                    <div className="bg-indigo-50 text-[#5145cd] p-3 rounded-lg"><Icon path={icons.calendar} size={24} /></div>
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{activeDay.title} SCHEDULE</h3>
+                                        </div>
+                                        <div className="flex items-center gap-2 relative group">
+                                            <h2 className="text-[19px] font-extrabold text-slate-800 tracking-tight">{getFormattedDate(activeDay.date)}</h2>
+                                            <input type="date" value={activeDay.date} onChange={(e) => updateDayDate(activeDay.id, e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                            <Icon path={icons.edit} size={14} className="text-slate-300 group-hover:text-indigo-500 pointer-events-none" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-6 w-full md:w-auto">
+                                    <button onClick={getDailyFeedback} className="bg-indigo-50/50 border border-indigo-100 hover:bg-indigo-100 hover:border-indigo-200 px-3 py-2 rounded-lg flex items-center gap-2 transition-all">
+                                        <Icon path={icons.sparkles} size={16} className="text-[#8b5cf6]" />
+                                        <span className="text-[12px] font-bold ai-shimmer">AI Coach</span>
+                                    </button>
+                                    <div className="w-px h-10 bg-slate-200 hidden md:block"></div>
+                                    <div className="text-right">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">DAILY TIME</p>
+                                        <p className="text-[22px] font-black text-slate-800 tracking-tight">{formatTime(dailyStats.totalMins)}</p>
+                                    </div>
+                                    <div className="w-px h-10 bg-slate-200 hidden md:block"></div>
+                                    <div className="flex-1 md:flex-none min-w-[120px]">
+                                        <div className="flex justify-between text-[11px] font-bold mb-2.5"><span className="text-slate-500">Progress</span><span className="text-[#5145cd]">{dailyStats.progress}%</span></div>
+                                        <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-slate-300 transition-all duration-500" style={{ width: `${dailyStats.progress}%` }} /></div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* HABIT SECTIONS ("Feathers") */}
+                        {activeDay && settings.habitSections.map(section => (
+                            <div key={section.id} className="bg-white rounded-xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-[#e5e7eb] p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                                <div className="flex items-center gap-3 min-w-[150px]">
+                                    <div className="text-slate-400"><Icon path={icons.star} size={20}/></div>
+                                    <h3 className="text-[15px] font-bold text-slate-800">{section.title}</h3>
+                                </div>
+                                <div className="flex items-center justify-start md:justify-end gap-6 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 scrollbar-hide flex-nowrap">
+                                    {section.items.map(item => (
+                                        <button key={item.id} onClick={() => toggleHabit(activeDay.id, item.id)} className="flex flex-col items-center gap-1.5 group focus:outline-none shrink-0 px-2">
+                                            <span className={`text-[10px] font-bold uppercase tracking-wider transition-colors ${activeDay.habits?.[item.id] ? 'text-[#5145cd]' : 'text-slate-400 group-hover:text-slate-600'}`}>{item.name}</span>
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${activeDay.habits?.[item.id] ? 'text-[#5145cd]' : 'text-slate-300 group-hover:text-slate-400'}`}>
+                                                <Icon path={activeDay.habits?.[item.id] ? icons.checkCircleFill : icons.circle} size={22} />
+                                            </div>
+                                        </button>
+                                    ))}
+                                    {section.items.length === 0 && <span className="text-xs text-slate-400 italic">No items added yet.</span>}
+                                </div>
+                            </div>
+                        ))}
+
+                        {/* SUBJECTS LIST */}
+                        <div className="space-y-4 pt-2">
+                            {activeSubjects.map((subject, index) => {
+                                const totalSubChecks = subject.tasks.length * 4;
+                                const completedSubChecks = subject.tasks.reduce((acc, t) => acc + (t.watched ? 1 : 0) + (t.book ? 1 : 0) + (t.urt ? 1 : 0) + (t.exam ? 1 : 0), 0);
+                                const progressPercent = totalSubChecks === 0 ? 0 : Math.round((completedSubChecks / totalSubChecks) * 100);
+                                const subjectTotalMinutes = subject.tasks.reduce((acc, t) => acc + (Number(t.duration) || 0), 0);
+
+                                return (
+                                    <div key={subject.id} className="bg-white rounded-xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-[#e5e7eb] overflow-hidden">
+                                        
+                                        {/* Subject Header */}
+                                        <div className="px-5 py-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                            <div className="flex items-center gap-3 flex-1 flex-wrap">
+                                                <div className="text-[#5145cd] bg-indigo-50 p-2 rounded-lg"><Icon path={icons.book} size={18} /></div>
+                                                {editingSubjectId === subject.id ? (
+                                                    <div className="flex items-center gap-2 flex-1 max-w-sm">
+                                                        <input autoFocus className="w-full p-1.5 border border-indigo-300 rounded-md focus:ring-2 focus:outline-none text-sm" value={editSubjectName} onChange={(e) => setEditSubjectName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveSubjectName(subject.id)} />
+                                                        <button onClick={() => saveSubjectName(subject.id)} className="p-1 text-green-600 hover:bg-green-50 rounded-md"><Icon path={icons.save} size={18}/></button>
+                                                        <button onClick={() => setEditingSubjectId(null)} className="p-1 text-red-500 hover:bg-red-50 rounded-md"><Icon path={icons.x} size={18}/></button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-3 group">
+                                                        <h2 className="text-[17px] font-bold text-slate-800">{subject.name}</h2>
+                                                        <div className="flex items-center gap-1.5 bg-[#f3f4f6] text-slate-500 px-2.5 py-1 rounded-md text-[11px] font-semibold border border-slate-200">
+                                                            <Icon path={icons.clock} size={12} /> {formatTime(subjectTotalMinutes)}
+                                                        </div>
+                                                        <button onClick={() => {setEditingSubjectId(subject.id); setEditSubjectName(subject.name);}} className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-all" title="Edit Name"><Icon path={icons.edit} size={14} /></button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-4 w-full md:w-auto justify-end">
+                                                <div className="flex items-center bg-white border border-slate-200 rounded-md overflow-hidden">
+                                                    <button onClick={() => moveSubjectUp(index)} disabled={index === 0} className={`p-1 transition-colors ${index === 0 ? 'text-slate-300 bg-slate-50' : 'text-slate-500 hover:bg-slate-100'}`}><Icon path={icons.arrowUp} size={14} /></button>
+                                                    <div className="w-px h-4 bg-slate-200"></div>
+                                                    <button onClick={() => moveSubjectDown(index)} disabled={index === activeSubjects.length - 1} className={`p-1 transition-colors ${index === activeSubjects.length - 1 ? 'text-slate-300 bg-slate-50' : 'text-slate-500 hover:bg-slate-100'}`}><Icon path={icons.arrowDown} size={14} /></button>
+                                                </div>
+                                                <div className="flex items-center gap-3 min-w-[120px]">
+                                                    <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-slate-300 transition-all duration-500 rounded-full" style={{ width: `${progressPercent}%` }} /></div>
+                                                    <span className="text-[11px] font-bold text-[#5145cd] w-8 text-right">{progressPercent}%</span>
+                                                </div>
+                                                <button onClick={() => deleteSubject(subject.id)} className="text-slate-400 hover:text-red-500 transition-colors" title="Delete Subject"><Icon path={icons.trash} size={16} /></button>
+                                            </div>
+                                        </div>
+
+                                        {/* Tasks Table */}
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left border-collapse whitespace-nowrap min-w-[850px]">
+                                                <thead>
+                                                    <tr>
+                                                        <th className="px-5 py-3.5 font-semibold text-[11px] text-slate-500 w-1/4">Session / Item</th>
+                                                        <th className="px-4 py-3.5 font-semibold text-[11px] text-slate-500 text-center w-28">Start Time</th>
+                                                        <th className="px-4 py-3.5 font-semibold text-[11px] text-slate-500 text-center w-24">Duration</th>
+                                                        <th className="px-3 py-3.5 font-semibold text-[11px] text-slate-500 text-center">Watched?</th>
+                                                        <th className="px-3 py-3.5 font-semibold text-[11px] text-slate-500 text-center">Book?</th>
+                                                        <th className="px-3 py-3.5 font-semibold text-[11px] text-slate-500 text-center">URT?</th>
+                                                        <th className="px-3 py-3.5 font-semibold text-[11px] text-slate-500 text-center">Exam?</th>
+                                                        <th className="px-4 py-3.5 font-semibold text-[11px] text-slate-500 w-1/3">Notes / Plan</th>
+                                                        <th className="px-5 py-3.5 font-semibold text-[11px] text-slate-500 text-right">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {subject.tasks.length === 0 && !addingToSubject && (
+                                                        <tr>
+                                                            <td colSpan="9" className="px-5 py-8 text-center text-[12px] text-slate-400 italic border-t border-slate-100 bg-[#f9fafb]/50">
+                                                                No sessions added yet.
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                    {subject.tasks.map(task => (
+                                                        editingTask === task.id ? (
+                                                            <tr key={task.id} className="bg-indigo-50/30 border-t border-slate-100">
+                                                                <td className="p-2 px-5"><input autoFocus className="w-full p-1.5 text-[13px] border border-indigo-200 rounded bg-white outline-none focus:border-indigo-400 font-medium" defaultValue={task.name} id={`name_${task.id}`} /></td>
+                                                                <td className="p-2"><input type="time" className="w-full p-1.5 text-[13px] border border-indigo-200 rounded bg-white text-center outline-none font-medium text-indigo-600" defaultValue={task.startTime} id={`time_${task.id}`} /></td>
+                                                                <td className="p-2"><input type="number" min="0" className="w-full p-1.5 text-[13px] border border-indigo-200 rounded bg-white text-center outline-none font-medium" defaultValue={task.duration} id={`dur_${task.id}`} placeholder="Mins" /></td>
+                                                                <td colSpan="4" className="p-2 text-center text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Statuses locked</td>
+                                                                <td className="p-2"><input className="w-full p-1.5 text-[13px] border border-indigo-200 rounded bg-white outline-none" defaultValue={task.notes} id={`notes_${task.id}`} /></td>
+                                                                <td className="p-2 px-5 text-right">
+                                                                    <div className="flex gap-1.5 justify-end">
+                                                                        <button onClick={() => updateTask(subject.id, task.id, { name: document.getElementById(`name_${task.id}`).value, startTime: document.getElementById(`time_${task.id}`).value, duration: document.getElementById(`dur_${task.id}`).value, notes: document.getElementById(`notes_${task.id}`).value })} className="p-1.5 text-green-600 hover:bg-green-100 rounded"><Icon path={icons.save} size={16} /></button>
+                                                                        <button onClick={() => setEditingTask(null)} className="p-1.5 text-red-500 hover:bg-red-50 rounded"><Icon path={icons.x} size={16} /></button>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        ) : (
+                                                            <tr key={task.id} className="group border-t border-slate-100 hover:bg-slate-50/50 transition-colors">
+                                                                <td className="px-5 py-3.5 text-[13px] font-bold text-slate-800">{task.name}</td>
+                                                                <td className="px-4 py-3.5 text-center text-[12px] font-bold text-[#5145cd]">{formatStartTime(task.startTime)}</td>
+                                                                <td className="px-4 py-3.5 text-center text-[13px] text-slate-600">{formatTime(task.duration)}</td>
+                                                                <td className="px-3 py-3.5 text-center"><StatusButton status={task.watched} onClick={() => toggleStatus(subject.id, task.id, 'watched')} /></td>
+                                                                <td className="px-3 py-3.5 text-center"><StatusButton status={task.book} onClick={() => toggleStatus(subject.id, task.id, 'book')} /></td>
+                                                                <td className="px-3 py-3.5 text-center"><StatusButton status={task.urt} onClick={() => toggleStatus(subject.id, task.id, 'urt')} /></td>
+                                                                <td className="px-3 py-3.5 text-center"><StatusButton status={task.exam} onClick={() => toggleStatus(subject.id, task.id, 'exam')} /></td>
+                                                                <td className="px-4 py-3.5 text-[12px] text-slate-500 truncate max-w-[200px] whitespace-pre-wrap">{task.notes || '--'}</td>
+                                                                <td className="px-5 py-3.5 text-right">
+                                                                    <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                        {aiLoadingTask === task.id ? (
+                                                                            <div className="p-1.5 rounded"><div className="spinner"></div></div>
+                                                                        ) : (
+                                                                            <button onClick={() => generateStudyPlan(subject.id, task, subject.name)} title="AI Gen Study Plan" className="p-1.5 text-[#8b5cf6] hover:bg-purple-50 rounded"><Icon path={icons.sparkles} size={14} /></button>
+                                                                        )}
+                                                                        <button onClick={() => setEditingTask(task.id)} className="p-1.5 text-slate-400 hover:text-[#5145cd] hover:bg-indigo-50 rounded"><Icon path={icons.edit} size={14} /></button>
+                                                                        <button onClick={() => deleteTask(subject.id, task.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded"><Icon path={icons.trash} size={14} /></button>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        )
+                                                    ))}
+                                                    {addingToSubject === subject.id && (
+                                                        <tr className="bg-slate-50 border-t border-slate-100">
+                                                            <td className="p-2 px-5"><input autoFocus className="w-full p-1.5 text-[13px] border border-slate-200 rounded outline-none focus:border-[#5145cd] font-medium" id={`add_name_${subject.id}`} placeholder="New Session" /></td>
+                                                            <td className="p-2"><input type="time" className="w-full p-1.5 text-[13px] border border-slate-200 rounded text-center outline-none font-medium" id={`add_time_${subject.id}`} /></td>
+                                                            <td className="p-2"><input type="number" min="0" className="w-full p-1.5 text-[13px] border border-slate-200 rounded text-center outline-none font-medium" id={`add_dur_${subject.id}`} placeholder="Mins" /></td>
+                                                            <td colSpan="4" className="p-2 text-center text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Starts unchecked</td>
+                                                            <td className="p-2"><input className="w-full p-1.5 text-[13px] border border-slate-200 rounded outline-none" id={`add_notes_${subject.id}`} placeholder="Notes" onKeyDown={(e) => e.key === 'Enter' && addTask(subject.id, document.getElementById(`add_name_${subject.id}`).value, document.getElementById(`add_dur_${subject.id}`).value, document.getElementById(`add_time_${subject.id}`).value, document.getElementById(`add_notes_${subject.id}`).value)} /></td>
+                                                            <td className="p-2 px-5 text-right">
+                                                                <div className="flex gap-1.5 justify-end items-center">
+                                                                    <button onClick={() => addTask(subject.id, document.getElementById(`add_name_${subject.id}`).value, document.getElementById(`add_dur_${subject.id}`).value, document.getElementById(`add_time_${subject.id}`).value, document.getElementById(`add_notes_${subject.id}`).value)} className="px-3 py-1 bg-[#5145cd] text-white text-[12px] font-bold rounded hover:bg-indigo-700">Add</button>
+                                                                    <button onClick={() => setAddingToSubject(null)} className="p-1 text-slate-400 hover:bg-slate-200 rounded"><Icon path={icons.x} size={16} /></button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {/* Add Session Button */}
+                                        {!addingToSubject && (
+                                            <div className="px-5 py-3 border-t border-slate-100 bg-white">
+                                                <button onClick={() => setAddingToSubject(subject.id)} className="flex items-center gap-1.5 text-[12px] font-bold text-[#5145cd] hover:text-indigo-800 transition-colors">
+                                                    <Icon path={icons.plus} size={14} /> Add Session
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Add Subject Card */}
+                        <div className="flex mt-2 mb-12">
+                            {newSubjectMode ? (
+                                <div className="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex items-center gap-2 w-full max-w-sm">
+                                    <input autoFocus className="flex-1 p-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#5145cd]" placeholder="Subject Name" value={newSubjectName} onChange={(e) => setNewSubjectName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addSubject()} />
+                                    <button onClick={addSubject} className="px-4 py-2 bg-[#5145cd] text-white text-sm font-semibold rounded-lg hover:bg-indigo-700">Add</button>
+                                    <button onClick={() => { setNewSubjectMode(false); setNewSubjectName(''); }} className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg"><Icon path={icons.x} size={18} /></button>
+                                </div>
+                            ) : (
+                                <button onClick={() => setNewSubjectMode(true)} className="flex items-center gap-1.5 text-[13px] font-semibold text-[#5145cd] hover:text-indigo-800 transition-colors py-2 px-1">
+                                    <Icon path={icons.plus} size={16} /> Add Subject
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* AI COACH MODAL */}
+                    {aiModal.isOpen && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+                                <div className="p-5 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-indigo-100 flex justify-between items-center">
+                                    <div className="flex items-center gap-2.5 text-[#5145cd]">
+                                        <Icon path={icons.sparkles} size={22} className="text-[#8b5cf6]" />
+                                        <h3 className="text-[17px] font-extrabold text-slate-800 tracking-tight">AI Daily Coach</h3>
+                                    </div>
+                                    <button onClick={() => setAiModal({isOpen: false, message: '', isLoading: false})} className="p-1 text-slate-400 hover:bg-white hover:text-slate-600 rounded-lg transition-colors"><Icon path={icons.x} size={20}/></button>
+                                </div>
+                                <div className="p-6 min-h-[150px] flex flex-col justify-center">
+                                    {aiModal.isLoading ? (
+                                        <div className="flex flex-col items-center justify-center space-y-4 py-6">
+                                            <div className="w-8 h-8 border-4 border-indigo-100 border-l-[#5145cd] rounded-full animate-spin"></div>
+                                            <p className="text-sm font-semibold text-slate-500 animate-pulse">Analyzing your schedule...</p>
+                                        </div>
+                                    ) : (
+                                        <div className="text-[14px] leading-relaxed text-slate-700 whitespace-pre-wrap font-medium">
+                                            {aiModal.message}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                                    <button onClick={() => setAiModal({isOpen: false, message: '', isLoading: false})} className="px-5 py-2 text-[13px] font-bold text-white bg-[#5145cd] hover:bg-indigo-700 shadow-sm rounded-lg transition-colors">Got it!</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* SETTINGS MODAL */}
+                    {isSettingsOpen && tempSettings && (
+                        <div className="fixed inset-0 z-40 flex items-center justify-center p-4 md:p-6 bg-slate-900/40 backdrop-blur-sm">
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-200">
+                                <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-white">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="text-[#5145cd]"><Icon path={icons.settings} size={20} /></div>
+                                        <h2 className="text-lg font-bold text-slate-800">Tracker Settings</h2>
+                                    </div>
+                                    <button onClick={() => setIsSettingsOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg"><Icon path={icons.x} size={20} /></button>
+                                </div>
+                                
+                                <div className="p-6 overflow-y-auto flex-1 bg-[#f4f6f8]">
+                                    <h3 className="text-[15px] font-bold text-slate-800 mb-1">Habits & Daily Checklists</h3>
+                                    <p className="text-[13px] text-slate-500 mb-6">Create and customize sections for things you track daily (like prayers, exercise, reading).</p>
+                                    
+                                    <div className="space-y-4">
+                                        {tempSettings.habitSections.map((section, sIdx) => (
+                                            <div key={section.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                                <div className="flex items-center gap-3 mb-4 border-b border-slate-100 pb-3">
+                                                    <input 
+                                                        className="flex-1 text-[15px] font-bold p-1 border-b border-transparent hover:border-slate-200 focus:border-[#5145cd] focus:outline-none transition-colors text-slate-800 bg-transparent"
+                                                        value={section.title}
+                                                        onChange={(e) => updateHabitSectionTitle(section.id, e.target.value)}
+                                                        placeholder="Section Title"
+                                                    />
+                                                    <button onClick={() => deleteHabitSection(section.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors" title="Delete Section"><Icon path={icons.trash} size={16} /></button>
+                                                </div>
+                                                
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                                                    {section.items.map((item, iIdx) => (
+                                                        <div key={item.id} className="flex items-center bg-slate-50 border border-slate-200 rounded-lg overflow-hidden focus-within:border-[#5145cd]">
+                                                            <div className="px-2.5 text-slate-400 font-mono text-[10px] bg-slate-100 h-full flex items-center border-r border-slate-200">{iIdx + 1}</div>
+                                                            <input 
+                                                                className="flex-1 p-2 text-[13px] focus:outline-none bg-transparent"
+                                                                value={item.name}
+                                                                onChange={(e) => updateHabitItemName(section.id, item.id, e.target.value)}
+                                                                placeholder="Item name"
+                                                            />
+                                                            <button onClick={() => deleteHabitItem(section.id, item.id)} className="p-2 text-slate-400 hover:text-red-500 transition-colors"><Icon path={icons.x} size={14} /></button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <button onClick={() => addHabitItem(section.id)} className="flex items-center gap-1.5 text-[12px] font-bold text-[#5145cd] hover:text-indigo-800 transition-colors"><Icon path={icons.plus} size={14} /> Add Item</button>
+                                            </div>
+                                        ))}
+                                        
+                                        <button onClick={addHabitSection} className="w-full py-3.5 border border-dashed border-slate-300 rounded-xl text-slate-500 text-sm font-bold hover:border-indigo-300 hover:text-[#5145cd] hover:bg-white transition-all flex items-center justify-center gap-2">
+                                            <Icon path={icons.plus} size={16} /> Add New Checklist Section
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="p-4 border-t border-slate-100 bg-white flex justify-end gap-3">
+                                    <button onClick={() => setIsSettingsOpen(false)} className="px-5 py-2 text-[13px] font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
+                                    <button onClick={saveSettings} className="px-5 py-2 text-[13px] font-bold text-white bg-[#5145cd] hover:bg-indigo-700 shadow-sm rounded-lg transition-colors flex items-center gap-1.5"><Icon path={icons.save} size={14}/> Save Settings</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* CONFIRM / ALERT MODAL */}
+                    {modal.isOpen && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200">
+                                <div className="p-5">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className={modal.type === 'confirm' ? "text-red-500" : "text-[#5145cd]"}><Icon path={icons.alertCircle} size={22} /></div>
+                                        <h3 className="text-[17px] font-bold text-slate-800">{modal.title}</h3>
+                                    </div>
+                                    <p className="text-slate-600 text-[14px] leading-relaxed ml-8">{modal.message}</p>
+                                </div>
+                                <div className="bg-slate-50 p-4 flex justify-end gap-2 border-t border-slate-100">
+                                    {modal.type === 'confirm' ? (
+                                        <>
+                                            <button onClick={closeModal} className="px-4 py-2 text-[13px] font-bold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Cancel</button>
+                                            <button onClick={modal.onConfirm} className="px-4 py-2 text-[13px] font-bold text-white bg-red-500 hover:bg-red-600 shadow-sm rounded-lg transition-colors">Delete</button>
+                                        </>
+                                    ) : (
+                                        <button onClick={closeModal} className="px-4 py-2 text-[13px] font-bold text-white bg-[#5145cd] hover:bg-indigo-700 shadow-sm rounded-lg transition-colors">OK</button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
